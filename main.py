@@ -18,7 +18,7 @@ hostname = os.getenv("PLEX_HOSTNAME")
 class MyClient(discord.Client):
 
     async def on_ready(self):
-        print('Logged on as', self.user)
+            print(f"✅ Logged in as {self.user} (ID: {self.user.id})")
 
     async def on_message(self, message):
         if message.author == self.user:
@@ -27,6 +27,7 @@ class MyClient(discord.Client):
             await message.channel.send('pong')
 
     async def send_plex_movie_update(self, data):
+        await self.wait_until_ready()
         print("Sending log")
         channel = self.get_channel(channel_id)
         if channel is None:
@@ -41,10 +42,10 @@ class MyClient(discord.Client):
             description=(
                     f"**Title: **{data['title']}\n"
                     f"**Tag: **{data.get('tagline', 'No tagline')}\n"
-                    f"**Tear: **{data.get('audience_rating', 'No tagline')}\n"
-                    f"**Rating: **{data.get('content_rating', 'No tagline')}\n"
-                    f"**Genre: **{data.get('genre', 'No tagline')}\n"
-
+                    f"**Starring: **{data.get('actors', 'No tagline')}\n"
+                    f"**Audience Rating: **{data.get('audience_rating', 'No tagline')}\n"
+                    f"**Rating: **{data.get('content_rating', 'No tagline')} / 10\n"
+                    f"**Genre: **{data.get('genres', 'No tagline')}\n"
         ))
 
         #embed.add_field(
@@ -91,6 +92,7 @@ async def root():
 # Test Base Root
 @app.get("/test")
 async def root():
+    actors = ["Alden Ehrenreich", "Joonas Suotamo", "Woody Harrelson"]
     data = {
         "title" : "Solo: A Star Wars Story",
         "type" : "movie",
@@ -99,9 +101,10 @@ async def root():
         "content_rating" : "PG-13",
         "tagline" : "Never tell him the odds",
         "thumb" : "/library/metadata/7933/thumb/1750901990",
+        "actors" : actors
     }
     asyncio.run_coroutine_threadsafe(client.send_plex_movie_update(data), client.loop)
-    return {"message": "Hello World"}
+    return {"message": "Message Sent"}    
 
 # Will take in plex data and handle that to allow the discord bot to post appropriately
 # TODO: need to proper web reponses later thiis will do for now
@@ -146,7 +149,6 @@ async def plex(request: Request):
         except Exception as e:
             print(e)
 
-
 def wrangle_plex_new_movie_item(data):
     wrangled = {
         "title" : data.get("title"),
@@ -155,7 +157,9 @@ def wrangle_plex_new_movie_item(data):
         "content_rating" : data.get("contentRating"),
         "audience_rating" : data.get("audienceRating"),
         "thumb" : data.get("thumb"),
-        "year" : data.get("year")
+        "year" : data.get("year"),
+        "genres" : [genre["tag"] for genre in data.get("Genre", [])],
+        "actors" : [actor["actor"] for actor in data.get("Role", [])][:3] 
     }
     return wrangled
 
