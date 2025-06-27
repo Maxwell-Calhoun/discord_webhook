@@ -3,8 +3,10 @@ import os
 import threading
 import asyncio
 import json
+import uvicorn
 from fastapi import FastAPI, Request
 from dotenv import load_dotenv
+import uvicorn.config
 
 # Load environment variables
 load_dotenv()
@@ -13,8 +15,9 @@ channel_id = int(os.getenv("CHANNEL_ID"))
 plex_token = os.getenv("X-PLEX-TOKEN")
 hostname = os.getenv("PLEX_HOSTNAME")
 
-# discord scripts
+app = FastAPI()
 
+# discord scripts
 class MyClient(discord.Client):
 
     async def on_ready(self):
@@ -71,19 +74,16 @@ class MyClient(discord.Client):
         message = "New " + data["type"] + " to goon to " + data["title"] + "! " + hostname + data["thumb"] + plex_token
         await channel.send(embed=message)
 
-
 # Initialize the bot
 intents = discord.Intents.default()
 intents.message_content = True
 client = MyClient(intents=intents)
 
-# Thread for the discord client
-discord_thread = threading.Thread(target=lambda: client.run(discord_token), daemon=True)
-discord_thread.start()
+async def startup():
+    config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="info")
+    server = uvicorn.Server(config)
+    await asyncio.gather(server.serve(), client.start(discord_token))
 
-# API Under Here
-app = FastAPI()
-    
 # Test Base Root
 @app.get("/")
 async def root():
@@ -91,7 +91,7 @@ async def root():
 
 # Test Base Root
 @app.get("/test")
-async def root():
+async def test():
     actors = ["Alden Ehrenreich", "Joonas Suotamo", "Woody Harrelson"]
     data = {
         "title" : "Solo: A Star Wars Story",
@@ -103,8 +103,9 @@ async def root():
         "thumb" : "/library/metadata/7933/thumb/1750901990",
         "actors" : actors
     }
-    asyncio.run_coroutine_threadsafe(client.send_plex_movie_update(data), client.loop)
-    return {"message": "Message Sent"}    
+
+    client.loop.create_task(client.send_plex_movie_update(data))
+    return {"message": "Message Sent"}
 
 # Will take in plex data and handle that to allow the discord bot to post appropriately
 # TODO: need to proper web reponses later thiis will do for now
@@ -127,27 +128,20 @@ async def plex(request: Request):
     event = data.get("event")
     metadata = data.get("Metadata")
 
-    if event == "library.new":
-        if metadata.get("type") == "movie":
-            data = wrangle_plex_new_movie_item(metadata)
-            future = asyncio.run_coroutine_threadsafe(client.send_plex_movie_update(data), client.loop)
-        else:
-            data = wrangle_plex_new_tv_item(metadata)
-            future = asyncio.run_coroutine_threadsafe(client.send_plex_show_update(data), client.loop)
-        
-        
-        
-        try:
-            future.result(timeout=10)
-            return {"message": "Notification sent"}
-        except Exception as e:
-            return {"error": f"Failed to send message: {str(e)}"}
-    else:
-        try:
+    try:
+        if event == "library.new":
+            if metadata.get("type") == "movie":
+                data = wrangle_plex_new_movie_item(metadata)
+                client.loop.create_task(client.send_plex_movie_update(data))
+            else:
+                data = wrangle_plex_new_tv_item(metadata)
+                client.loop.create_task(client.send_plex_show_update(data))
             
-            return {"message": "Ignoring due to wrong event"}
-        except Exception as e:
-            print(e)
+            return {"message": "Notification sent"} 
+        return {"message": f"Ignoring webhook as it is not new library {event}"}
+    except Exception as e:
+            return {"error": f"Failed to send message: {str(e)}"}
+    
 
 def wrangle_plex_new_movie_item(data):
     wrangled = {
@@ -171,3 +165,6 @@ def wrangle_plex_new_tv_item(data):
         "year" : data.get("year")
     }
     return wrangled
+
+if __name__ == "__main__":
+    asyncio.run(startup())
