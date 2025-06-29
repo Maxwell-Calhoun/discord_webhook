@@ -13,7 +13,7 @@ channel_id = int(os.getenv("CHANNEL_ID"))
 plex_token = os.getenv("X-PLEX-TOKEN")
 hostname = os.getenv("PLEX_HOSTNAME")
 thumbnail_url = os.getenv("THUMBNAIL_URL")
-port = os.getenv("PORT")
+port = int(os.getenv("PORT"))
 
 app = FastAPI()
 
@@ -79,7 +79,7 @@ intents.message_content = True
 client = MyClient(intents=intents)
 
 async def startup():
-    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="info")
+    config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
     server = uvicorn.Server(config)
     await asyncio.gather(server.serve(), client.start(discord_token))
 
