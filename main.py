@@ -50,7 +50,7 @@ class MyClient(discord.Client):
                         f"**Starring: **{data['actors']}\n"
                         f"**Runtime: **{data['duration']}\n"
                         f"**Audience Rating: **{data.get('audience_rating', 'N/A')}\n"
-                        f"**Rating: **{data.get('content_rating', 'N/A')} / 10\n"
+                        f"**Rating: **{data.get('content_rating', 'N/A')}\n"
                         f"**Genre: **{data.get('genres', 'N/A')}\n"
             ))
         else:
@@ -68,7 +68,7 @@ class MyClient(discord.Client):
                         f"{episode}"
                         f"**Starring: **{data.get('actors', 'N/A')}\n"
                         f"**Audience Rating: **{data.get('audience_rating', 'N/A')}\n"
-                        f"**Rating: **{data.get('content_rating', 'N/A')} / 10\n"
+                        f"**Rating: **{data.get('content_rating', 'N/A')}\n"
                         f"**Air Date:** {data['air_date']} | "
                         f"**Duration:** {data['duration']} min"
             ))
@@ -156,9 +156,9 @@ def wrangle_plex_payload(data):
         "type": data.get("type"),
         "season": data.get("parentIndex") or "N/A",
         "episode": data.get("index") or "N/A",
-        "tagline" : data.get("tagline"),
-        "summary": data.get("summary") or  "N/A",
-        "audience_rating" : data.get("audienceRating") or  "N/A",
+        "tagline" : data.get("tagline") or "N/A",
+        "summary": data.get("summary") or "N/A",
+        "audience_rating" : f"data.get('audienceRating')/10" or  "N/A",
         "content_rating": data.get("contentRating") or  "N/A",
         "air_date": data.get("originallyAvailableAt") or  "N/A",
         "duration": round(int(data.get("duration", 0)) / 60000)  or  "N/A",  # ms → min
