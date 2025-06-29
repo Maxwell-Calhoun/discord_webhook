@@ -1,24 +1,70 @@
-# discord_webhook
+# Plex Discord Webhook Bot
 
-plex discord bot that will utilize a webhook for primarily intercepting plex webhooks and then using a discord bot output various webhooks
+A Discord bot that listens for webhooks from your Plex server and sends notifications to a Discord channel when new content is added.
 
-## What it does
+---
 
-Hosts a webhook server at endpoint localhost:8000 by default that will take in payloads from a plex server and take that payload wrangle it and then have that sent to the discord to display to others about new content availible on the server.
+## What It Does
 
-## How to use
+- Hosts a FastAPI webhook server at `http://localhost:8000` (by default)
+- Accepts incoming Plex `library.new` webhooks
+- Wrangles the data
+- Sends a notification to a configured Discord channel with info about the new content that is now hosted on Plex
 
-Setup discord bot; learn [here](https://discordpy.readthedocs.io/en/stable/discord.html)
-Setup .env using .env-template
-Install Docker
-Use the build-and-run.ps1 script
-http://localhost:8000/test will test that api and send a test message to whatever channel you are running your discord bot in and if that isnt type ping to a channel that the bot has access to and it should reply in that channel with pong
-Profit
+---
+
+## How to Use
+
+1. **Set up a Discord Bot**
+
+   - Follow the guide here: [discord.py setup](https://discordpy.readthedocs.io/en/stable/discord.html)
+
+2. **Configure `.env`**
+
+   - Copy `.env-template` → `.env`
+   - Fill in your Discord bot token, channel ID, Plex token, etc.
+
+3. **Install Docker**
+   - [Download Docker Here](https://docs.docker.com/engine/install/)
+   - If on windows you will probably want WSL as well
+4. **Run the Bot**
+
+   - If on windows you can use the included PowerShell script:
+
+     ```powershell
+     ./build-and-run.ps1
+     ```
+
+   - Otherwise use docker build and run to run the container with the provided dockerfile
+   - You can also run outside container using py ./main.py make sure to install requirements from requirements.txt
+
+5. **Test**
+
+   - Open or use Postman: http://localhost:8000/test
+
+   - This sends a test message to your configured Discord channel.
+
+   - Or, in any channel the bot has access to send `ping` and the bot should respond with `pong`
+
+---
+
+## Example Output
 
 Example of discord output:
-![Example Output](image.png)
+![Example Output](discord_embed.png)
 
-## Future implementations
+## Future Implementations
 
-I want it to be able to take a requests for content (this should be easy to do) and then ideally it grabs the content they want and adds it to the plex server (much heavier lift).
-I want to add data collection for what content is being watched, when, and for how long. Then if I can collect enought (not sure if I will) then create a small ML model to determine when the server is expected to have traffic, for how long, and what type of content that might be.
+- Configure for more webhook data to come in a process that data
+
+- Let users request content in Discord (easy lift)
+
+- Automatically add requested content to Plex (longer-term goal)
+
+- Track viewing data: what's watched, when, and for how long
+
+- Use basic ML to:
+
+  - Predict when server traffic will spike
+
+  - Estimate what kind of content will be popular
