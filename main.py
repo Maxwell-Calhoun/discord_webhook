@@ -141,6 +141,7 @@ async def plex(request: Request):
             return {"error": f"Failed to send message: {str(e)}"}
     
 
+# TODO: Combine the data handling as it doesnt need to be two seperate functions just handle the data potentially not being there
 def wrangle_plex_new_movie_item(data):
     actors = ", ".join([actor["tag"] for actor in data.get("Role", [])][:3])
     return {
