@@ -1,12 +1,10 @@
 import discord
 import os
-import threading
 import asyncio
 import json
 import uvicorn
 from fastapi import FastAPI, Request
 from dotenv import load_dotenv
-import uvicorn.config
 
 # Load environment variables
 load_dotenv()
@@ -58,9 +56,9 @@ class MyClient(discord.Client):
                 colour=discord.Colour.dark_teal(),
                 description=(
                         f"**Title: **{data['grandparentTitle']}\n"
-                        f"**Episode: **S{data['season']:02}E{data['episode']:02}: {data['title']}\n"
+                        f"**Episode: **S{data['season']:02}E{data['episode']:02}: {data['grandparentTitle']}\n"
                         f"**Summary: **{data.get('summary', 'N/A')}\n"
-                        f"**Starring: **{', '.join(data.get('actors'))}\n"
+                        f"**Starring: **{data.get('actors', 'N/A')}\n"
                         f"**Audience Rating: **{data.get('audience_rating', 'N/A')}\n"
                         f"**Rating: **{data.get('content_rating', 'N/A')} / 10\n"
                         f"**Air Date:** {data['air_date']} | "
@@ -104,7 +102,7 @@ async def test():
         "actors" : actors
     }
 
-    client.loop.create_task(client.send_plex_movie_update(data))
+    client.loop.create_task(client.send_plex_new_content(data))
     return {"message": "Message Sent"}
 
 # Will take in plex data and handle that to allow the discord bot to post appropriately
@@ -112,6 +110,7 @@ async def test():
 @app.post("/plex")
 async def plex(request: Request):
     form = await request.form()
+    print(form)
     print("Form keys:", list(form.keys()))
     payload = form.get("payload")
     if payload is None:
@@ -143,6 +142,7 @@ async def plex(request: Request):
     
 
 def wrangle_plex_new_movie_item(data):
+    actors = ", ".join([actor["tag"] for actor in data.get("Role", [])][:3])
     return {
         "title" : data.get("title"),
         "type" : data.get("type"),
@@ -152,21 +152,20 @@ def wrangle_plex_new_movie_item(data):
         "thumb" : data.get("thumb"),
         "year" : data.get("year"),
         "genres" : [genre["tag"] for genre in data.get("Genre", [])],
-        "actors" : [actor["tag"] for actor in data.get("Role", [])][:3] 
+        "actors": actors if actors else "N/A"
     }
 
 def wrangle_plex_new_tv_item(data):
     actors = ", ".join([actor["tag"] for actor in data.get("Role", [])][:3])
     return {
-        "title": data.get("title"),
         "type": data.get("type"),
-        "season": data.get("parentIndex"),
-        "episode": data.get("index"),
-        "grandparentTitle": data.get("grandparentTitle"),
+        "season": data.get("parentIndex") or "N/A",
+        "episode": data.get("index") or "N/A",
+        "grandparentTitle": data.get("grandparentTitle") or data.get("title") or "N/A",
         "summary": data.get("summary", "N/A"),
         "audience_rating" : data.get("audienceRating", "N/A"),
         "content_rating": data.get("contentRating", "N/A"),
-        "air_date": data.get("originallyAvailableAt", "Unknown"),
+        "air_date": data.get("originallyAvailableAt", "N/A"),
         "duration": round(int(data.get("duration", 0)) / 60000),  # ms → min
         "thumb": data.get("thumb", data.get("grandparentThumb")),
         "actors": actors if actors else "N/A"
