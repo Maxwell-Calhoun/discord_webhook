@@ -50,7 +50,8 @@ A Discord bot that listens for webhooks from your Plex server and sends notifica
 
 ## Example Output
 
-Example of discord output:
+    - Example of discord output:
+
 ![Example Output](discord_embed.png)
 
 ## Future Implementations
