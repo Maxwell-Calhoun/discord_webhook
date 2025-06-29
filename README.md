@@ -15,7 +15,8 @@ Use the build-and-run.ps1 script
 http://localhost:8000/test will test that api and send a test message to whatever channel you are running your discord bot in and if that isnt type ping to a channel that the bot has access to and it should reply in that channel with pong
 Profit
 
-Example of discord output: ![Example Output](image.png)
+Example of discord output:
+![Example Output](image.png)
 
 ## Future implementations
 
