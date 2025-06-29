@@ -3,7 +3,7 @@ import os
 import asyncio
 import json
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -23,6 +23,7 @@ class MyClient(discord.Client):
     async def on_ready(self):
             print(f"✅ Logged in as {self.user} (ID: {self.user.id})")
 
+    # I just use this to check the discord bot is actually running properly
     async def on_message(self, message):
         if message.author == self.user:
             return
@@ -73,6 +74,7 @@ class MyClient(discord.Client):
             ))
         
         embed.set_footer(text="Plex Library • GoonBox")
+
         # set image give larger image than thumbnail
         embed.set_thumbnail(url=thumbnail_url)
         embed.set_image(url=thumb_url)
@@ -94,7 +96,7 @@ async def startup():
 async def root():
     return {"message": "Hello World"}
 
-# Test Base Root
+# Test Base Root; should technically be post but I want to easily test and this is fine
 @app.get("/test")
 async def test():
     data = {
@@ -123,13 +125,13 @@ async def plex(request: Request):
     payload = form.get("payload")
     if payload is None:
         print("ERROR: No payload found in form data.")
-        return {"error": "No payload found"}
+        raise HTTPException(status_code=400, detail=f"No payload data found")
 
     try:
         data = json.loads(payload)
     except json.JSONDecodeError:
         print("ERROR: Invalid JSON in payload.")
-        return {"error": "Invalid JSON"}
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {payload}")
 
     event = data.get("event")
     metadata = data.get("Metadata")
@@ -143,7 +145,8 @@ async def plex(request: Request):
             return {"message": "Notification sent"} 
         return {"message": f"Ignoring webhook as it is not new library {event}"}
     except Exception as e:
-            return {"error": f"Failed to send message: {str(e)}"}
+        print(f"ERROR: Failed to send message: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
 
 def wrangle_plex_payload(data):
     actors = ", ".join([actor["tag"] for actor in data.get("Role", [])][:3])
