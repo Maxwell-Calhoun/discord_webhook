@@ -56,7 +56,7 @@ class MyClient(discord.Client):
         else:
             # condition where input is not an episode but rather new show
             if data['season'] is not None or data['episode'] is not None:
-                episode = f"**Episode: **S{data['season']:02}E{data['episode']:02}: {data['grandparentTitle']}\n"
+                episode = f"**Episode: **S{data['season']:02}E{data['episode']:02}: {data['title']}\n"
             else:
                 episode = ""
 
@@ -64,7 +64,7 @@ class MyClient(discord.Client):
                 title=f"New {data['type']} to goon to!",
                 colour=discord.Colour.dark_teal(),
                 description=(
-                        f"**Title: **{data['grandparentTitle']}\n"
+                        f"**Title: **{data['title']}\n"
                         f"{episode}"
                         f"**Starring: **{data.get('actors', 'N/A')}\n"
                         f"**Audience Rating: **{data.get('audience_rating', 'N/A')}\n"
@@ -152,7 +152,7 @@ def wrangle_plex_payload(data):
     actors = ", ".join([actor["tag"] for actor in data.get("Role", [])][:3])
     genres = ", ".join([genre["tag"] for genre in data.get("Genre", [])][:3])
     return {
-        "grandparentTitle": data.get("grandparentTitle") or data.get("title") or "N/A",
+        "title": data.get("grandparentTitle") or data.get("title") or "N/A",
         "type": data.get("type"),
         "season": data.get("parentIndex") or "N/A",
         "episode": data.get("index") or "N/A",
