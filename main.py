@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 discord_token = os.getenv("DISCORD_TOKEN")
 channel_id = int(os.getenv("CHANNEL_ID"))
+test_channel_id = int(os.getenv("TEST_CHANNEL_ID"))
 plex_token = os.getenv("X-PLEX-TOKEN")
 hostname = os.getenv("PLEX_HOSTNAME")
 thumbnail_url = os.getenv("THUMBNAIL_URL")
@@ -30,19 +31,25 @@ class MyClient(discord.Client):
         if message.content == 'ping':
             await message.channel.send('pong')
 
-    async def send_plex_new_content(self, data):
+    async def send_plex_new_content(self, data, server, channel_override=None):
         await self.wait_until_ready()
-        print("Sending log")
-        channel = self.get_channel(channel_id)
+        # in the case where we want to test we can setup test channel and set that as override on call
+        if channel_override is None:
+            channel = self.get_channel(channel_id)
+        else:
+            channel = self.get_channel(channel_override)
+        
         if channel is None:
             print("Channel not found. Bot may not have access or isn't in the server.")
             return
 
         thumb_url = f"https://{hostname}{data['thumb']}?X-Plex-Token={plex_token}"
-        
+        content_url = f"https://{hostname}/web/index.html#!/server/{server.get('uuid')}/details?key=/library/metadata/{data.get('ratingKey')}"
+
         if (data['type'] == "movie"):
             embed = discord.Embed(
-                title=f"New {data['type']} to goon to!",
+                title=f"NEW {data['type'].upper()} TO GOON TO",
+                url=content_url,
                 colour=discord.Colour.dark_teal(),
                 description=(
                         f"**Title: **{data['title']}\n"
@@ -61,8 +68,9 @@ class MyClient(discord.Client):
                 episode = ""
 
             embed = discord.Embed(
-                title=f"New {data['type']} to goon to!",
+                title=f"NEW {data['type'].upper()} TO GOON TO",
                 colour=discord.Colour.dark_teal(),
+                url=content_url,
                 description=(
                         f"**Title: **{data['title']}\n"
                         f"{episode}"
@@ -70,10 +78,10 @@ class MyClient(discord.Client):
                         f"**Audience Rating: **{data.get('audience_rating', 'N/A')}\n"
                         f"**Rating: **{data.get('content_rating', 'N/A')}\n"
                         f"**Air Date:** {data['air_date']} | "
-                        f"**Duration:** {data['duration']} min"
+                        f"**Duration:** {data['duration']}"
             ))
         
-        embed.set_footer(text="Plex Library • GoonBox")
+        embed.set_footer(text=f"Plex Library • {hostname}")
 
         # set image give larger image than thumbnail
         embed.set_thumbnail(url=thumbnail_url)
@@ -99,6 +107,8 @@ async def root():
 # Test Base Root; should technically be post but I want to easily test and this is fine
 @app.get("/test")
 async def test():
+    actors = ", ".join(["Alden Ehrenreich", "Joonas Suotamo", "Woody Harrelson"][:3])
+    genres = ", ".join(["action", "adventure", "mystery"][:3])
     data = {
         "title" : "Solo: A Star Wars Story",
         "type" : "movie",
@@ -106,13 +116,19 @@ async def test():
         "audience_rating" : "6.6",
         "content_rating" : "PG-13",
         "tagline" : "Never tell him the odds",
-        "duration" : "8100000",
+        "duration" : f"{round(8100000/60000)} mins",
         "thumb" : "/library/metadata/8008/thumb/1750992579",
-        "genres" : ["action", "adventure", "mystery"],
-        "actors" : ["Alden Ehrenreich", "Joonas Suotamo", "Woody Harrelson"]
+        "ratingKey" : "8008",
+        "genres" : genres,
+        "actors" : actors
     }
 
-    client.loop.create_task(client.send_plex_new_content(data))
+    server = {
+        "title": "Test",
+        "uuid": "7ccb25ef9967c0387943dd18e1bda78ef722d635"
+    }
+    
+    client.loop.create_task(client.send_plex_new_content(data, server, channel_override=test_channel_id))
     return {"message": "Message Sent"}
 
 # Will take in plex data and handle that to allow the discord bot to post appropriately
@@ -120,8 +136,8 @@ async def test():
 @app.post("/plex")
 async def plex(request: Request):
     form = await request.form()
+    # printing payload for potential debugging and logging
     print(form)
-    print("Form keys:", list(form.keys()))
     payload = form.get("payload")
     if payload is None:
         print("ERROR: No payload found in form data.")
@@ -135,12 +151,15 @@ async def plex(request: Request):
 
     event = data.get("event")
     metadata = data.get("Metadata")
+    server = data.get("Server")
 
     try:
+        # library.new would include new movie, show (multiple episodes), and new episodes as well other content that I dont personally host like music
         if event == "library.new":
+            print("here1")
             data = wrangle_plex_payload(metadata)
-            
-            client.loop.create_task(client.send_plex_new_content(data))
+            print("here2")
+            client.loop.create_task(client.send_plex_new_content(data, server))
             
             return {"message": "Notification sent"} 
         return {"message": f"Ignoring webhook as it is not new library {event}"}
@@ -158,12 +177,13 @@ def wrangle_plex_payload(data):
         "episode": data.get("index") or "N/A",
         "tagline" : data.get("tagline") or "N/A",
         "summary": data.get("summary") or "N/A",
-        "audience_rating" : f"data.get('audienceRating')/10" or  "N/A",
+        "audience_rating": f"{data['audienceRating']}/10" if data.get("audienceRating") is not None else "N/A",
         "content_rating": data.get("contentRating") or  "N/A",
         "air_date": data.get("originallyAvailableAt") or  "N/A",
-        "duration": round(int(data.get("duration", 0)) / 60000)  or  "N/A",  # ms → min
+        "duration": "N/A" if int(data.get("duration", 0)) == 0 else f"{round(int(data['duration']) / 60000)} mins", # ms -> mins
         "thumb": data.get("thumb", data.get("grandparentThumb")) or  "N/A",
         "year" : data.get("year") or "N/A",
+        "ratingKey" : data.get("ratingKey") or "N/A",
         "genres": genres if genres else "N/A",
         "actors": actors if actors else "N/A"
     }
